@@ -1,0 +1,10 @@
+services:
+  m3u-epg-matcher:
+    build: .
+    container_name: m3u-epg-matcher
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+      - ./config.json:/app/config.json
