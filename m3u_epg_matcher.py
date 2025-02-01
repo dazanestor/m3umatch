@@ -10,15 +10,22 @@ from flask import Flask, request, jsonify, send_from_directory
 app = Flask(__name__)
 
 data_dir = "./data"
-config_file = "./config.json"
+config_dir = "./config"
+config_file = os.path.join(config_dir, "config.json")
 os.makedirs(data_dir, exist_ok=True)
+
+# Crear config.json si no existe
+def ensure_config_exists():
+    os.makedirs(config_dir, exist_ok=True)
+    if not os.path.exists(config_file):
+        with open(config_file, "w", encoding="utf-8") as file:
+            json.dump([], file)
 
 # Cargar configuración desde archivo JSON
 def load_config():
-    if os.path.exists(config_file):
-        with open(config_file, "r", encoding="utf-8") as file:
-            return json.load(file)
-    return []
+    ensure_config_exists()
+    with open(config_file, "r", encoding="utf-8") as file:
+        return json.load(file)
 
 # Guardar configuración en archivo JSON
 def save_config():
@@ -122,5 +129,6 @@ def get_file(filename):
 
 
 if __name__ == "__main__":
+    ensure_config_exists()
     start_processing_thread()
     app.run(host="0.0.0.0", port=5000, threaded=True)
