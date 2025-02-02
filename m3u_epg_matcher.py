@@ -92,7 +92,7 @@ def index():
         f'<li>{item["name"]}: '
         f'M3U: <input type="text" value="{item["m3u"]}" id="m3u_{item["name"]}"> '
         f'EPG: <input type="text" value="{item["epg"]}" id="epg_{item["name"]}"> '
-        f'<button onclick="updateList('{item["name"]}')">Actualizar</button></li>'
+        f'<button onclick="updateList(\'{item["name"]}\')">Actualizar</button></li>'
         for item in config
     )
     
