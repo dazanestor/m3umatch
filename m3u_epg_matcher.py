@@ -84,6 +84,35 @@ def start_processing_thread():
     thread.start()
 
 
+@app.route("/")
+def index():
+    file_list = os.listdir(data_dir)
+    files_html = "".join(f'<li><a href="/files/{file}">{file}</a></li>' for file in file_list)
+    
+    return f'''
+    <html><body>
+    <h2>Añadir Lista M3U y EPG</h2>
+    <form action="/add" method="post">
+        <label>Nombre:</label><br>
+        <input type="text" name="name" required><br>
+        <label>URL M3U:</label><br>
+        <input type="url" name="m3u" required><br>
+        <label>URL EPG:</label><br>
+        <input type="url" name="epg" required><br>
+        <input type="submit" value="Añadir">
+    </form>
+    
+    <h2>Listas disponibles</h2>
+    <ul>{files_html}</ul>
+    
+    <h2>Actualizar Listas Manualmente</h2>
+    <form action="/update" method="post">
+        <input type="submit" value="Actualizar Ahora">
+    </form>
+    </body></html>
+    '''
+
+
 @app.route("/add", methods=["POST"])
 def add_list():
     """ Agrega una nueva lista para procesar desde la web """
