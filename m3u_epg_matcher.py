@@ -56,26 +56,27 @@ def download_file(url, file_path):
 
 def process_lists():
     """ Descarga y procesa todas las listas cada 24h """
-    for item in config:
-        m3u_url = item["m3u"]
-        epg_url = item["epg"]
-        list_name = item["name"]
+    while True:
+        for item in config:
+            m3u_url = item["m3u"]
+            epg_url = item["epg"]
+            list_name = item["name"]
+            
+            m3u_path = os.path.join(data_dir, f"{list_name}.m3u")
+            epg_path = os.path.join(data_dir, f"{list_name}.xml.gz")
+            output_path = os.path.join(data_dir, f"{list_name}_matched.m3u")
+            
+            logging.info(f"Procesando lista: {list_name}")
+            success_m3u = download_file(m3u_url, m3u_path)
+            success_epg = download_file(epg_url, epg_path)
+            
+            if success_m3u and success_epg:
+                logging.info(f"Lista {list_name} procesada correctamente.")
+            else:
+                logging.warning(f"Falló la descarga de {list_name}. Revise las URLs.")
         
-        m3u_path = os.path.join(data_dir, f"{list_name}.m3u")
-        epg_path = os.path.join(data_dir, f"{list_name}.xml.gz")
-        output_path = os.path.join(data_dir, f"{list_name}_matched.m3u")
-        
-        logging.info(f"Procesando lista: {list_name}")
-        success_m3u = download_file(m3u_url, m3u_path)
-        success_epg = download_file(epg_url, epg_path)
-        
-        if success_m3u and success_epg:
-            logging.info(f"Lista {list_name} procesada correctamente.")
-        else:
-            logging.warning(f"Falló la descarga de {list_name}. Revise las URLs.")
-    
-    logging.info("Esperando 24 horas para la siguiente actualización.")
-    time.sleep(86400)  # Esperar 24 horas
+        logging.info("Esperando 24 horas para la siguiente actualización.")
+        time.sleep(86400)  # Esperar 24 horas
 
 
 def start_processing_thread():
@@ -83,48 +84,18 @@ def start_processing_thread():
     thread.start()
 
 
-@app.route("/")
-def index():
-    file_list = os.listdir(data_dir)
-    files_html = "".join(f'<li><a href="/files/{file}">{file}</a></li>' for file in file_list)
+@app.route("/add", methods=["POST"])
+def add_list():
+    """ Agrega una nueva lista para procesar desde la web """
+    name = request.form.get("name")
+    m3u = request.form.get("m3u")
+    epg = request.form.get("epg")
     
-    lists_html = "".join(
-        f'<li>{item["name"]}: '
-        f'M3U: <input type="text" value="{item["m3u"]}" id="m3u_{item["name"]}"> '
-        f'EPG: <input type="text" value="{item["epg"]}" id="epg_{item["name"]}"> '
-        f'<button onclick="updateList(\'{item["name"]}\')">Actualizar</button></li>'
-        for item in config
-    )
-    
-    return f'''
-    <html><body>
-    <h2>Añadir Lista M3U y EPG</h2>
-    <form action="/add" method="post">
-        <label>Nombre:</label><br>
-        <input type="text" name="name" required><br>
-        <label>URL M3U:</label><br>
-        <input type="url" name="m3u" required><br>
-        <label>URL EPG:</label><br>
-        <input type="url" name="epg" required><br>
-        <input type="submit" value="Añadir">
-    </form>
-    
-    <h2>Listas disponibles</h2>
-    <ul>{lists_html}</ul>
-    
-    <script>
-    function updateList(name) {{
-        let m3u = document.getElementById(`m3u_${{name}}`).value;
-        let epg = document.getElementById(`epg_${{name}}`).value;
-        fetch('/update_list', {{
-            method: 'POST',
-            headers: {{ 'Content-Type': 'application/json' }},
-            body: JSON.stringify({{ "name": name, "m3u": m3u, "epg": epg }})
-        }}).then(response => response.json()).then(data => alert(data.message));
-    }}
-    </script>
-    </body></html>
-    '''
+    if name and m3u and epg:
+        config.append({"name": name, "m3u": m3u, "epg": epg})
+        save_config()
+        return redirect(url_for('index'))
+    return "Error: Datos inválidos", 400
 
 
 @app.route("/update_list", methods=["POST"])
