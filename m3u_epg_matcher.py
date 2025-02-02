@@ -58,27 +58,26 @@ def download_file(url, file_path):
 
 def process_lists():
     """ Descarga y procesa todas las listas cada 24h """
-    while True:
-        for item in config:
-            m3u_url = item["m3u"]
-            epg_url = item["epg"]
-            list_name = item["name"]
-            
-            m3u_path = os.path.join(data_dir, f"{list_name}.m3u")
-            epg_path = os.path.join(data_dir, f"{list_name}.xml.gz")
-            output_path = os.path.join(data_dir, f"{list_name}_matched.m3u")
-            
-            logging.info(f"Procesando lista: {list_name}")
-            success_m3u = download_file(m3u_url, m3u_path)
-            success_epg = download_file(epg_url, epg_path)
-            
-            if success_m3u and success_epg:
-                logging.info(f"Lista {list_name} procesada correctamente.")
-            else:
-                logging.warning(f"Falló la descarga de {list_name}. Revise las URLs.")
+    for item in config:
+        m3u_url = item["m3u"]
+        epg_url = item["epg"]
+        list_name = item["name"]
         
-        logging.info("Esperando 24 horas para la siguiente actualización.")
-        time.sleep(86400)  # Esperar 24 horas
+        m3u_path = os.path.join(data_dir, f"{list_name}.m3u")
+        epg_path = os.path.join(data_dir, f"{list_name}.xml.gz")
+        output_path = os.path.join(data_dir, f"{list_name}_matched.m3u")
+        
+        logging.info(f"Procesando lista: {list_name}")
+        success_m3u = download_file(m3u_url, m3u_path)
+        success_epg = download_file(epg_url, epg_path)
+        
+        if success_m3u and success_epg:
+            logging.info(f"Lista {list_name} procesada correctamente.")
+        else:
+            logging.warning(f"Falló la descarga de {list_name}. Revise las URLs.")
+    
+    logging.info("Esperando 24 horas para la siguiente actualización.")
+    time.sleep(86400)  # Esperar 24 horas
 
 
 def start_processing_thread():
@@ -98,6 +97,23 @@ def index():
         <input type="file" name="file">
         <input type="submit" value="Subir">
     </form>
+    
+    <h2>Añadir Lista M3U y EPG</h2>
+    <form action="/add" method="post">
+        <label>Nombre:</label><br>
+        <input type="text" name="name" required><br>
+        <label>URL M3U:</label><br>
+        <input type="url" name="m3u" required><br>
+        <label>URL EPG:</label><br>
+        <input type="url" name="epg" required><br>
+        <input type="submit" value="Añadir">
+    </form>
+    
+    <h2>Actualizar Listas Manualmente</h2>
+    <form action="/update" method="post">
+        <input type="submit" value="Actualizar Ahora">
+    </form>
+    
     <h2>Listas disponibles</h2>
     <ul>{files_html}</ul>
     </body></html>
@@ -116,28 +132,11 @@ def upload_file():
     return redirect(url_for('index'))
 
 
-@app.route("/add", methods=["POST"])
-def add_list():
-    """ Agrega una nueva lista para procesar """
-    data = request.json
-    if "name" in data and "m3u" in data and "epg" in data:
-        config.append(data)
-        save_config()
-        return jsonify({"message": "Lista añadida"}), 200
-    return jsonify({"error": "Datos inválidos"}), 400
-
-
-@app.route("/lists", methods=["GET"])
-def get_lists():
-    """ Retorna la configuración de listas """
-    return jsonify(config)
-
-
 @app.route("/update", methods=["POST"])
 def update_now():
     """ Fuerza la actualización inmediata de listas """
     threading.Thread(target=process_lists).start()
-    return jsonify({"message": "Actualización en proceso"}), 200
+    return redirect(url_for('index'))
 
 
 @app.route("/files/<filename>")
