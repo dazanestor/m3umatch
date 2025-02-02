@@ -7,7 +7,6 @@ import gzip
 import xml.etree.ElementTree as ET
 import logging
 from flask import Flask, request, jsonify, send_from_directory, render_template, redirect, url_for
-from werkzeug.utils import secure_filename
 
 # Configuración del logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -17,7 +16,6 @@ app = Flask(__name__)
 data_dir = "./data"
 config_dir = "./config"
 config_file = os.path.join(config_dir, "config.json")
-app.config['UPLOAD_FOLDER'] = data_dir
 os.makedirs(data_dir, exist_ok=True)
 os.makedirs(config_dir, exist_ok=True)
 
@@ -90,14 +88,16 @@ def index():
     file_list = os.listdir(data_dir)
     files_html = "".join(f'<li><a href="/files/{file}">{file}</a></li>' for file in file_list)
     
+    lists_html = "".join(
+        f'<li>{item["name"]}: '
+        f'M3U: <input type="text" value="{item["m3u"]}" id="m3u_{item["name"]}"> '
+        f'EPG: <input type="text" value="{item["epg"]}" id="epg_{item["name"]}"> '
+        f'<button onclick="updateList('{item["name"]}')">Actualizar</button></li>'
+        for item in config
+    )
+    
     return f'''
     <html><body>
-    <h2>Subir archivos</h2>
-    <form action="/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="file">
-        <input type="submit" value="Subir">
-    </form>
-    
     <h2>Añadir Lista M3U y EPG</h2>
     <form action="/add" method="post">
         <label>Nombre:</label><br>
@@ -109,34 +109,35 @@ def index():
         <input type="submit" value="Añadir">
     </form>
     
-    <h2>Actualizar Listas Manualmente</h2>
-    <form action="/update" method="post">
-        <input type="submit" value="Actualizar Ahora">
-    </form>
-    
     <h2>Listas disponibles</h2>
-    <ul>{files_html}</ul>
+    <ul>{lists_html}</ul>
+    
+    <script>
+    function updateList(name) {{
+        let m3u = document.getElementById(`m3u_${{name}}`).value;
+        let epg = document.getElementById(`epg_${{name}}`).value;
+        fetch('/update_list', {{
+            method: 'POST',
+            headers: {{ 'Content-Type': 'application/json' }},
+            body: JSON.stringify({{ "name": name, "m3u": m3u, "epg": epg }})
+        }}).then(response => response.json()).then(data => alert(data.message));
+    }}
+    </script>
     </body></html>
     '''
 
 
-@app.route("/upload", methods=["POST"])
-def upload_file():
-    if 'file' not in request.files:
-        return redirect(url_for('index'))
-    file = request.files['file']
-    if file.filename == '':
-        return redirect(url_for('index'))
-    filename = secure_filename(file.filename)
-    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-    return redirect(url_for('index'))
-
-
-@app.route("/update", methods=["POST"])
-def update_now():
-    """ Fuerza la actualización inmediata de listas """
-    threading.Thread(target=process_lists).start()
-    return redirect(url_for('index'))
+@app.route("/update_list", methods=["POST"])
+def update_list():
+    """ Actualiza una lista existente """
+    data = request.json
+    for item in config:
+        if item["name"] == data["name"]:
+            item["m3u"] = data["m3u"]
+            item["epg"] = data["epg"]
+            save_config()
+            return jsonify({"message": "Lista actualizada correctamente"})
+    return jsonify({"error": "Lista no encontrada"}), 404
 
 
 @app.route("/files/<filename>")
